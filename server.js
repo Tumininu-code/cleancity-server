@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 
 // Your Gemini API key - safe here on the server
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_API = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_API = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 // Allow requests from your app
 app.use(cors({
