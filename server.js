@@ -70,10 +70,16 @@ Be specific, professional, and accurate.` }
     });
 
     const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const clean = text.replace(/```json|```/g, '').trim();
-    const result = JSON.parse(clean);
-    res.json(result);
+console.log('Gemini status:', response.status);
+console.log('Gemini full response:', JSON.stringify(data));
+const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+console.log('Extracted text:', text);
+if (!text) {
+  return res.status(500).json({ error: 'No text from Gemini', raw: data });
+}
+const clean = text.replace(/```json|```/g, '').trim();
+const result = JSON.parse(clean);
+res.json(result);
 
   } catch (err) {
     console.error('Classification error:', err);
