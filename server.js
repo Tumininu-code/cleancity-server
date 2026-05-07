@@ -49,7 +49,9 @@ app.get('/geocode', async (req, res) => {
     );
     const data = await response.json();
     if (data.results && data.results.length > 0) {
-      res.json({ address: data.results[0].formatted_address });
+      // Skip Plus Codes, find first real address
+      const real = data.results.find(r => !r.types.includes('plus_code')) || data.results[0];
+      res.json({ address: real.formatted_address });
     } else {
       res.json({ address: 'Lagos, Nigeria' });
     }
