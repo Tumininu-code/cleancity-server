@@ -1,18 +1,18 @@
 // CleanCity Backend Server
-// Handles Gemini AI calls and Maps API securely
+// AI Classification via Claude API (Anthropic)
 // Student: Olumutimi Jesutumininu | MIVA Open University 2026
- 
+
 const express = require('express');
 const cors = require('cors');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
- 
+
 const app = express();
 const PORT = process.env.PORT || 3000;
- 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 const MAPS_API_KEY = process.env.MAPS_API_KEY;
-const GEMINI_API = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
- 
+const CLAUDE_API = 'https://api.anthropic.com/v1/messages';
+
 app.use(cors({
   origin: [
     'https://tumininu-code.github.io',
@@ -21,23 +21,23 @@ app.use(cors({
     'http://127.0.0.1:3000'
   ]
 }));
- 
+
 app.use(express.json({ limit: '10mb' }));
- 
+
 // Health check
 app.get('/', (req, res) => {
-  res.json({ status: 'CleanCity AI Server running', version: '2.0' });
+  res.json({ status: 'CleanCity AI Server running', version: '3.0', ai: 'Claude' });
 });
- 
-// Serve Maps API key securely to frontend
+
+// Serve Maps API key securely
 app.get('/maps-key', (req, res) => {
   if (!MAPS_API_KEY) {
     return res.status(500).json({ error: 'Maps API key not configured' });
   }
   res.json({ key: MAPS_API_KEY });
 });
- 
-// Reverse geocode: coordinates to real address
+
+// Reverse geocode
 app.get('/geocode', async (req, res) => {
   const { lat, lng } = req.query;
   if (!lat || !lng) {
@@ -49,7 +49,6 @@ app.get('/geocode', async (req, res) => {
     );
     const data = await response.json();
     if (data.results && data.results.length > 0) {
-      // Skip Plus Codes, find first real address
       const real = data.results.find(r => !r.types.includes('plus_code')) || data.results[0];
       res.json({ address: real.formatted_address });
     } else {
@@ -59,27 +58,43 @@ app.get('/geocode', async (req, res) => {
     res.json({ address: 'Lagos, Nigeria' });
   }
 });
- 
-// AI Classification endpoint
+
+// AI Classification via Claude
 app.post('/classify', async (req, res) => {
   try {
     const { imageBase64, mimeType, location } = req.body;
- 
+
     if (!imageBase64) {
       return res.status(400).json({ error: 'No image provided' });
     }
- 
-    const response = await fetch(GEMINI_API, {
+
+    const response = await fetch(CLAUDE_API, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': CLAUDE_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
       body: JSON.stringify({
-        contents: [{
-          parts: [
-            { inline_data: { mime_type: mimeType || 'image/jpeg', data: imageBase64 } },
-            { text: `You are CleanCity's AI waste classification system for Nigerian urban areas.
- 
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: mimeType || 'image/jpeg',
+                data: imageBase64
+              }
+            },
+            {
+              type: 'text',
+              text: `You are CleanCity's AI waste classification system for Nigerian urban areas.
+
 Analyze this image and generate a complete environmental incident report.
- 
+
 Respond ONLY with a valid JSON object, no other text, no markdown, no backticks:
 {
   "category": "one of: Illegal Dumping, Waste Pileup, Blocked Drainage, Flooding, Environmental Pollution, Other",
@@ -91,34 +106,40 @@ Respond ONLY with a valid JSON object, no other text, no markdown, no backticks:
   "estimated_cleanup_time": "e.g. 2-4 hours, 1 day, etc",
   "location_context": "brief description of the environment visible in image"
 }
- 
+
 Location: ${location || 'Lagos, Nigeria'}
-Be specific, professional, and accurate.` }
+Be specific, professional, and accurate. This report will be sent to waste management authorities.`
+            }
           ]
-        }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 1000 }
+        }]
       })
     });
- 
+
     const data = await response.json();
-    console.log('Gemini status:', response.status);
-    console.log('Gemini full response:', JSON.stringify(data));
- 
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    if (!text) {
-      return res.status(500).json({ error: 'No response from AI', raw: data });
+    console.log('Claude status:', response.status);
+
+    if (!response.ok) {
+      console.error('Claude error:', JSON.stringify(data));
+      return res.status(500).json({ error: 'Claude API error', details: data });
     }
- 
+
+    const text = data.content?.[0]?.text || '';
+    console.log('Claude response text:', text);
+
+    if (!text) {
+      return res.status(500).json({ error: 'No response from Claude' });
+    }
+
     const clean = text.replace(/```json|```/g, '').trim();
     const result = JSON.parse(clean);
     res.json(result);
- 
+
   } catch (err) {
     console.error('Classification error:', err);
     res.status(500).json({ error: 'Classification failed', details: err.message });
   }
 });
- 
+
 app.listen(PORT, () => {
-  console.log(`CleanCity server running on port ${PORT}`);
+  console.log(`CleanCity server running on port ${PORT} with Claude AI`);
 });
