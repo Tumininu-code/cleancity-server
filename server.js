@@ -14,12 +14,9 @@ const MAPS_API_KEY = process.env.MAPS_API_KEY;
 const CLAUDE_API = 'https://api.anthropic.com/v1/messages';
 
 app.use(cors({
-  origin: [
-    'https://tumininu-code.github.io',
-    'http://localhost:3000',
-    'http://127.0.0.1:5500',
-    'http://127.0.0.1:3000'
-  ]
+app.use(cors({
+  origin: true,
+  credentials: true
 }));
 
 app.use(express.json({ limit: '10mb' }));
